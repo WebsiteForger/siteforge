@@ -163,6 +163,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-4-5-20250929
             --max-turns 20
+            --dangerously-skip-permissions
 `;
 
 const CLAUDE_MD = `# SiteForge — AI Site Editor Instructions
