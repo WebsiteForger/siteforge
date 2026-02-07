@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchSites();
@@ -39,6 +40,7 @@ export default function DashboardPage() {
     if (!newSiteName.trim() || creating) return;
 
     setCreating(true);
+    setError("");
     try {
       const res = await fetch("/api/sites", {
         method: "POST",
@@ -46,12 +48,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ name: newSiteName.trim().toLowerCase() }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        const site = await res.json();
-        setSites((prev) => [site, ...prev]);
+        setSites((prev) => [data, ...prev]);
         setNewSiteName("");
         setShowCreate(false);
+      } else {
+        setError(data.error || "Failed to create site");
       }
+    } catch {
+      setError("Network error — please try again");
     } finally {
       setCreating(false);
     }
@@ -68,7 +75,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-semibold">Your Sites</h2>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => { setShowCreate(true); setError(""); }}
             className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-neutral-200 transition"
           >
             + New Site
@@ -92,13 +99,22 @@ export default function DashboardPage() {
                 autoFocus
               />
               <p className="text-xs text-neutral-500 mb-4">
-                Lowercase letters, numbers, and hyphens only. This becomes your-site.netlify.app
+                Lowercase letters, numbers, and hyphens only.
               </p>
+              {error && (
+                <p className="text-sm text-red-400 mb-4">{error}</p>
+              )}
+              {creating && (
+                <p className="text-sm text-neutral-400 mb-4">
+                  Setting up GitHub repo, Netlify site, and AI workflow... This takes ~15 seconds.
+                </p>
+              )}
               <div className="flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 text-neutral-400 hover:text-white transition"
+                  disabled={creating}
+                  className="px-4 py-2 text-neutral-400 hover:text-white transition disabled:opacity-50"
                 >
                   Cancel
                 </button>
