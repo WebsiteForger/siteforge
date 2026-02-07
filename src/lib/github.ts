@@ -60,7 +60,7 @@ export async function createSiteRepo(siteName: string, userId: string) {
     org: GITHUB_ORG,
     name: repoName,
     auto_init: true,
-    private: true,
+    private: false,
     description: `SiteForge site [owner:${userId}] [display:${siteName}]`,
   });
 
