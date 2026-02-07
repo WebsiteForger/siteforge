@@ -1,0 +1,25 @@
+name: AI Edit (Claude Code)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "The user's edit request"
+        required: true
+        type: string
+
+jobs:
+  ai-edit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ github.event.inputs.prompt }}
+          # Change this one line to switch models:
+          model: "claude-sonnet-4-5-20250929"

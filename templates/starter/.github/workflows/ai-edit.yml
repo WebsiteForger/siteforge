@@ -1,0 +1,31 @@
+name: AI Edit (Claude Code)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "The user's edit request"
+        required: true
+        type: string
+
+jobs:
+  ai-edit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            The user wants you to edit their website. Here is their request:
+
+            ${{ github.event.inputs.prompt }}
+
+            IMPORTANT: Read CLAUDE.md first for site editing rules. Always complete the task fully. Commit all changes when done.
+          claude_args: |
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20
