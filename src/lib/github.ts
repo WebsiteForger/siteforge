@@ -159,10 +159,12 @@ jobs:
 
       - name: Scrape reference sites
         timeout-minutes: 5
+        env:
+          PROMPT_TEXT: \${{ github.event.inputs.prompt }}
         run: |
           mkdir -p reference
           # Extract URLs from the prompt
-          URLS=\$(echo "\${{ github.event.inputs.prompt }}" | grep -oP 'https?://[^\\s"'"'"'<>]+' || true)
+          URLS=\$(echo "\$PROMPT_TEXT" | grep -oP 'https?://[^\\s"'"'"'<>]+' || true)
           if [ -n "\$URLS" ]; then
             for URL in \$URLS; do
               DOMAIN=\$(echo "\$URL" | sed 's|https\\?://||' | sed 's|/.*||')
@@ -207,11 +209,13 @@ jobs:
       - name: Run Claude
         env:
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+          PROMPT_TEXT: \${{ github.event.inputs.prompt }}
+          MODEL_NAME: \${{ github.event.inputs.model }}
         run: |
-          claude --model "\${{ github.event.inputs.model }}" --dangerously-skip-permissions --max-turns 30 -p "
+          claude --model "\$MODEL_NAME" --dangerously-skip-permissions --max-turns 30 -p "
           The user wants you to edit their website. Here is their request:
 
-          \${{ github.event.inputs.prompt }}
+          \$PROMPT_TEXT
 
           IMPORTANT INSTRUCTIONS:
           1. Read CLAUDE.md first for the site editing rules.
