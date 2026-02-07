@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
     // 3. If user provided a description, trigger the AI to customize the site
     if (description) {
       const initialPrompt = buildInitialPrompt(name, description);
-      // Fire-and-forget — don't wait for the AI to finish
-      triggerAIEdit(repoName, initialPrompt).catch((err) =>
+      // Use Opus for initial creation (big task), Sonnet for edits
+      triggerAIEdit(repoName, initialPrompt, "claude-opus-4-6").catch((err) =>
         console.error("Failed to trigger initial AI edit:", err)
       );
     }
@@ -72,20 +72,46 @@ export async function POST(req: NextRequest) {
 }
 
 function buildInitialPrompt(siteName: string, description: string): string {
-  return `This is a BRAND NEW site called "${siteName}". The user just created it and wants you to completely redesign it based on their description below. Do NOT keep the default template — transform the entire site to match what they want.
+  return `TASK: Build a complete website called "${siteName}" from scratch.
 
-USER'S DESCRIPTION:
+USER'S DESCRIPTION / REFERENCE:
 ${description}
 
-INSTRUCTIONS:
-1. Read CLAUDE.md first for the rules.
-2. Completely rewrite index.html to match the user's description.
-3. Replace ALL placeholder content with real content based on their description.
-4. If they mentioned specific text, bios, company info, or data — use it word for word.
-5. If they linked to a site for inspiration — match that style as closely as possible.
-6. Pick a color scheme that fits their brand/description. Update the Tailwind config.
-7. Make sure the site title, meta tags, and Open Graph tags match the new content.
-8. The site must be fully complete — no placeholders, no TODOs, no "coming soon".
-9. Keep it static HTML + Tailwind CSS. No frameworks.
-10. Make it look professional and polished. This is their first impression.`;
+YOU MUST DO THE FOLLOWING:
+
+1. Read CLAUDE.md for tech stack rules (static HTML + Tailwind CSS, no frameworks).
+
+2. CHECK the reference/ directory — the workflow has already scraped/downloaded the user's
+   reference site(s) including all HTML pages, images, CSS, and assets. READ EVERY FILE.
+
+3. If the user linked to an existing site to recreate:
+   - Read ALL HTML files in reference/ — not just the main page
+   - Extract EVERY piece of real content: all text, headings, addresses, phone numbers,
+     email addresses, business hours, team bios, service descriptions, prices, listings
+   - If there are apartment/property/product listings — include ALL of them with ALL details
+   - Reproduce ALL navigation: if the original has 5 pages worth of content, create sections
+     for all 5 (you can use a single-page layout with sections, or multiple HTML files)
+   - Keep external links pointing to their original destinations
+   - For images: copy from reference/ to an images/ folder if downloaded, otherwise hotlink
+     the original URLs
+   - Match the functionality: if the original has a contact form, make one. If it has a
+     map embed, include it. If it has downloadable PDFs, link to the originals.
+
+4. If the user just gave a description (no reference site):
+   - Generate complete, realistic content — no lorem ipsum, no placeholders
+   - Use real-sounding data that matches their description
+   - Fill every section with substantial content
+
+5. Design requirements:
+   - Modern, professional design — this is their first impression
+   - Fully responsive (mobile-first with Tailwind breakpoints)
+   - Pick a color scheme that fits the brand/industry
+   - Use appropriate Google Fonts
+   - Smooth interactions (hover effects, transitions)
+   - Proper meta tags, Open Graph tags, favicon
+
+6. The site must be COMPLETE and USABLE — not a mockup. A real person should be able to
+   visit this site and get all the information they need, just like the original.
+
+7. After making all changes, commit with a descriptive git message.`;
 }
