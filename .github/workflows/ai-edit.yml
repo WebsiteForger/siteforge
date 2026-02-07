@@ -11,15 +11,23 @@ on:
 jobs:
   ai-edit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: ${{ github.event.inputs.prompt }}
-          # Change this one line to switch models:
-          model: "claude-sonnet-4-5-20250929"
+          prompt: |
+            The user wants you to edit their website. Here is their request:
+
+            ${{ github.event.inputs.prompt }}
+
+            IMPORTANT: Read CLAUDE.md first for site editing rules. Always complete the task fully. Commit all changes when done.
+          claude_args: |
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20

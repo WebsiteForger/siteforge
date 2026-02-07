@@ -19,14 +19,14 @@ export async function triggerAIEdit(repo: string, prompt: string) {
   });
 }
 
-export async function createSiteRepo(siteName: string) {
-  // 1. Create the repo
+export async function createSiteRepo(siteName: string, userId: string) {
+  // 1. Create the repo — tag it with the Clerk user ID in the description
   const repo = await octokit.rest.repos.createInOrg({
     org: GITHUB_ORG,
     name: siteName,
     auto_init: false,
     private: false,
-    description: "Created by SiteForge",
+    description: `SiteForge site [owner:${userId}]`,
   });
 
   // 2. Push template files to the repo
@@ -76,13 +76,16 @@ export async function createSiteRepo(siteName: string) {
   return repo.data;
 }
 
-export async function listOrgRepos() {
+export async function listUserSites(userId: string) {
   const repos = await octokit.rest.repos.listForOrg({
     org: GITHUB_ORG,
     type: "all",
     sort: "updated",
   });
-  return repos.data;
+  // Only return repos owned by this user (tagged in description)
+  return repos.data.filter(
+    (repo) => repo.description?.includes(`[owner:${userId}]`)
+  );
 }
 
 export async function getRepoInfo(repoName: string) {

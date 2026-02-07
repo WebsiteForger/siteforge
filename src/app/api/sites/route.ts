@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createSiteRepo, listOrgRepos } from "@/lib/github";
+import { createSiteRepo, listUserSites } from "@/lib/github";
 import { createNetlifySite } from "@/lib/netlify";
 
-// GET /api/sites — list all sites for the org
+// GET /api/sites — list sites owned by the logged-in user
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const repos = await listOrgRepos();
+  const repos = await listUserSites(userId);
   const sites = repos.map((repo) => ({
     id: repo.name,
     name: repo.name,
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. Create GitHub repo from template + set Anthropic API key secret
-  const repo = await createSiteRepo(name);
+  const repo = await createSiteRepo(name, userId);
 
   // 2. Create Netlify site linked to the GitHub repo (auto-deploys on push)
   const netlifySite = await createNetlifySite(name);
