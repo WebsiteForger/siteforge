@@ -79,7 +79,7 @@ ${description}
 
 YOU MUST DO THE FOLLOWING:
 
-1. Read CLAUDE.md for tech stack rules (static HTML + Tailwind CSS, no frameworks).
+1. Read CLAUDE.md for tech stack and UI rules — follow ALL of them strictly.
 
 2. CHECK the reference/ directory — the workflow has already scraped/downloaded the user's
    reference site(s) including all HTML pages, images, CSS, and assets. READ EVERY FILE.
@@ -110,8 +110,18 @@ YOU MUST DO THE FOLLOWING:
    - Smooth interactions (hover effects, transitions)
    - Proper meta tags, Open Graph tags, favicon
 
-6. The site must be COMPLETE and USABLE — not a mockup. A real person should be able to
+6. ABSOLUTE RULES:
+   - The navbar MUST be flush to the top of the viewport. No gap above it. Use top-0.
+   - Dropdown menus MUST be hoverable — nest the dropdown inside the trigger element's
+     parent so the hover state stays active when moving to dropdown items. Use Tailwind
+     group/group-hover. NO gap between the trigger and the dropdown content.
+   - NEVER create a page that is not 100% complete. No "under construction", no stubs,
+     no "coming soon". If you cannot fully build a page, don't create it and don't link to it.
+   - Every page that exists in navigation MUST be fully functional with real content.
+
+7. The site must be COMPLETE and USABLE — not a mockup. A real person should be able to
    visit this site and get all the information they need, just like the original.
 
-7. After making all changes, commit with a descriptive git message.`;
+8. After making all changes, commit with a descriptive git message.
+   Do NOT commit the reference/ directory.`;
 }
