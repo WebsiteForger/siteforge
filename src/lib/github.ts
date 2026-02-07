@@ -206,7 +206,10 @@ jobs:
           du -sh reference/ 2>/dev/null || true
 
       - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          # Gitignore reference/ BEFORE Claude runs so it won't commit scraped files
+          echo "reference/" >> .gitignore
 
       - name: Run Claude
         env:
@@ -214,7 +217,7 @@ jobs:
           PROMPT_TEXT: \${{ github.event.inputs.prompt }}
           MODEL_NAME: \${{ github.event.inputs.model }}
         run: |
-          claude --model "\$MODEL_NAME" --dangerously-skip-permissions --max-turns 30 -p "
+          claude --model "\$MODEL_NAME" --dangerously-skip-permissions --max-turns 50 -p "
           The user wants you to edit their website. Here is their request:
 
           \$PROMPT_TEXT
@@ -227,9 +230,8 @@ jobs:
              Extract ALL real content: text, headings, descriptions, addresses, phone numbers,
              apartment listings, team members, services, prices — EVERYTHING.
 
-          3. For images: check reference/ for downloaded images. Copy any useful images to the
-             site root (or an images/ folder). If images weren't downloaded, keep the original
-             URLs from the source site as img src (hotlink them).
+          3. For images: check reference/images/ for downloaded images. Copy them to the
+             site's images/ folder. If images weren't downloaded, hotlink the original URLs.
 
           4. If the user linked to an existing site to recreate:
              - You MUST reproduce ALL the content and functionality, not just the homepage
@@ -239,15 +241,18 @@ jobs:
              - If links go to external sites, keep those as external links
              - Recreate the COMPLETE site, not a summary of it
 
-          5. After making all changes, commit them with a descriptive message using git.
+          5. IMPORTANT: Do NOT create stub/placeholder pages that say 'under construction'.
+             If you can't fill a separate HTML file with real content, put ALL content into
+             sections on index.html instead. Every page must have real, complete content.
+
+          6. After making all changes, commit them with a descriptive message using git.
+             Do NOT commit the reference/ directory.
           "
 
       - name: Push changes
         run: |
           git config user.name "claude[bot]"
           git config user.email "noreply@anthropic.com"
-          # Don't push the reference/ scrape folder
-          echo "reference/" >> .gitignore
           git add -A
           git diff --staged --quiet || git commit -m "AI edit via SiteForge"
           git push
