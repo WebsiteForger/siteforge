@@ -11,6 +11,36 @@ interface Site {
   github_url: string;
 }
 
+interface WorkflowStatus {
+  status: string;
+  conclusion?: string | null;
+}
+
+function useWorkflowPolling(sites: Site[]) {
+  const [statuses, setStatuses] = useState<Record<string, WorkflowStatus>>({});
+
+  useEffect(() => {
+    if (sites.length === 0) return;
+
+    async function poll() {
+      const results: Record<string, WorkflowStatus> = {};
+      for (const site of sites) {
+        try {
+          const res = await fetch(`/api/workflow-status?repo=${site.id}`);
+          if (res.ok) results[site.id] = await res.json();
+        } catch { /* ignore */ }
+      }
+      setStatuses(results);
+    }
+
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => clearInterval(interval);
+  }, [sites]);
+
+  return statuses;
+}
+
 export default function DashboardPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +49,7 @@ export default function DashboardPage() {
   const [siteDescription, setSiteDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const workflowStatuses = useWorkflowPolling(sites);
 
   useEffect(() => {
     fetchSites();
@@ -194,26 +225,56 @@ export default function DashboardPage() {
 
         {/* Sites Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sites.map((site) => (
-            <Link
-              key={site.id}
-              href={`/dashboard/${site.id}`}
-              className="border border-neutral-800 rounded-xl p-4 hover:border-neutral-600 transition group"
-            >
-              <div className="aspect-video bg-neutral-900 rounded-lg mb-3 overflow-hidden">
-                <iframe
-                  src={site.url}
-                  className="w-full h-full pointer-events-none scale-50 origin-top-left"
-                  style={{ width: "200%", height: "200%" }}
-                  title={site.name}
-                />
-              </div>
-              <h3 className="font-medium group-hover:text-neutral-300 transition">
-                {site.name}
-              </h3>
-              <p className="text-sm text-neutral-500">{site.url}</p>
-            </Link>
-          ))}
+          {sites.map((site) => {
+            const wf = workflowStatuses[site.id];
+            const isAIWorking = wf && (wf.status === "in_progress" || wf.status === "queued");
+            const aiFailed = wf && wf.status === "completed" && wf.conclusion === "failure";
+
+            return (
+              <Link
+                key={site.id}
+                href={`/dashboard/${site.id}`}
+                className={`border rounded-xl p-4 hover:border-neutral-600 transition group ${
+                  isAIWorking ? "border-purple-500/50" : "border-neutral-800"
+                }`}
+              >
+                <div className="aspect-video bg-neutral-900 rounded-lg mb-3 overflow-hidden relative">
+                  <iframe
+                    src={site.url}
+                    className="w-full h-full pointer-events-none scale-50 origin-top-left"
+                    style={{ width: "200%", height: "200%" }}
+                    title={site.name}
+                  />
+                  {isAIWorking && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="flex items-center gap-2 bg-neutral-900/90 px-3 py-2 rounded-lg border border-purple-500/30">
+                        <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                        <span className="text-xs text-purple-300 font-medium">Claude is building...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium group-hover:text-neutral-300 transition">
+                      {site.name}
+                    </h3>
+                    <p className="text-sm text-neutral-500">{site.url}</p>
+                  </div>
+                  {isAIWorking && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 font-medium animate-pulse">
+                      AI working
+                    </span>
+                  )}
+                  {aiFailed && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-400 font-medium">
+                      AI failed
+                    </span>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>

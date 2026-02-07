@@ -10,10 +10,9 @@ interface Message {
 interface AIChatPanelProps {
   siteId: string;
   onEditSubmitted: () => void;
-  onDeployReady: () => void;
 }
 
-export function AIChatPanel({ siteId, onEditSubmitted, onDeployReady }: AIChatPanelProps) {
+export function AIChatPanel({ siteId, onEditSubmitted }: AIChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "system", content: "Tell me what changes you'd like to make to your site." },
   ]);
@@ -40,19 +39,10 @@ export function AIChatPanel({ siteId, onEditSubmitted, onDeployReady }: AIChatPa
 
       setMessages((prev) => [
         ...prev,
-        { role: "system", content: "Got it! Claude is working on your changes. This may take a minute..." },
+        { role: "system", content: "Got it! Claude is working on your changes. You'll see a status indicator in the header — the preview will refresh automatically when it's done." },
       ]);
       onEditSubmitted();
-
-      // Poll for deploy completion (simplified — real version would check Netlify API)
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          { role: "system", content: "Changes deployed! Refreshing preview." },
-        ]);
-        onDeployReady();
-        setLoading(false);
-      }, 60000); // 60 second estimate
+      setLoading(false);
     } catch {
       setMessages((prev) => [
         ...prev,

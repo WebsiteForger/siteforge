@@ -10,13 +10,46 @@ function shortId(): string {
 }
 
 export async function triggerAIEdit(repo: string, prompt: string) {
-  await octokit.rest.actions.createWorkflowDispatch({
-    owner: GITHUB_ORG,
-    repo,
-    workflow_id: "ai-edit.yml",
-    ref: "main",
-    inputs: { prompt },
-  });
+  // GitHub needs time to index the workflow file after it's pushed.
+  // Retry up to 3 times with increasing delays.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await octokit.rest.actions.createWorkflowDispatch({
+        owner: GITHUB_ORG,
+        repo,
+        workflow_id: "ai-edit.yml",
+        ref: "main",
+        inputs: { prompt },
+      });
+      return; // success
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, attempt * 3000));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+export async function getWorkflowStatus(repo: string) {
+  try {
+    const { data } = await octokit.rest.actions.listWorkflowRunsForRepo({
+      owner: GITHUB_ORG,
+      repo,
+      per_page: 1,
+    });
+    const run = data.workflow_runs[0];
+    if (!run) return { status: "none" as const };
+    return {
+      status: run.status as string,
+      conclusion: run.conclusion as string | null,
+      started_at: run.created_at,
+      html_url: run.html_url,
+    };
+  } catch {
+    return { status: "none" as const };
+  }
 }
 
 export async function createSiteRepo(siteName: string, userId: string) {
