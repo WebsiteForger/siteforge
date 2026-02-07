@@ -151,13 +151,14 @@ on:
 jobs:
   ai-edit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Scrape reference sites
+        timeout-minutes: 5
         run: |
           mkdir -p reference
           # Extract URLs from the prompt
@@ -165,36 +166,40 @@ jobs:
           if [ -n "\$URLS" ]; then
             for URL in \$URLS; do
               DOMAIN=\$(echo "\$URL" | sed 's|https\\?://||' | sed 's|/.*||')
-              echo "Scraping \$URL (domain: \$DOMAIN)..."
-              mkdir -p "reference/\$DOMAIN"
-              # Mirror the site: follow links within same domain, download images, CSS, JS
-              wget --mirror --convert-links --adjust-extension --page-requisites \\
-                --no-parent --timeout=10 --tries=2 --wait=0.5 \\
-                --directory-prefix="reference" \\
-                --reject="*.zip,*.tar,*.gz,*.pdf,*.mp4,*.avi,*.mov" \\
-                --no-host-directories \\
-                -e robots=off \\
-                "\$URL" 2>&1 | tail -5 || true
-              echo "Done scraping \$DOMAIN"
-              echo "Files downloaded:"
-              find "reference/" -type f | head -50
-            done
-            # Also dump raw HTML for each page for easy reading
-            for URL in \$URLS; do
-              echo "---"
-              echo "Fetching clean HTML: \$URL"
+              echo "Scraping \$URL ..."
+
+              # Step 1: Fetch main page and discover all internal links
               curl -sL "\$URL" > "reference/main-page.html" 2>/dev/null || true
-              # Try to find subpages from the main page
-              SUBPAGES=\$(curl -sL "\$URL" | grep -oP 'href="(/[^"]*)"' | sed 's/href="//;s/"//' | sort -u | head -20)
+              SUBPAGES=\$(curl -sL "\$URL" | grep -oP 'href="(https?://'""\$DOMAIN""'[^"]*|/[^"]*)"' | sed 's/href="//;s/"//' | sort -u | head -30)
+
+              # Step 2: Fetch each subpage HTML
               for SUB in \$SUBPAGES; do
-                SAFE_NAME=\$(echo "\$SUB" | tr '/' '_')
-                echo "  Fetching subpage: \$URL\$SUB"
-                curl -sL "\$URL\$SUB" > "reference/page\$SAFE_NAME.html" 2>/dev/null || true
+                case "\$SUB" in
+                  http*) FULL_URL="\$SUB" ;;
+                  *)     FULL_URL="\$URL\$SUB" ;;
+                esac
+                SAFE_NAME=\$(echo "\$SUB" | tr '/:?&#' '______' | head -c 100)
+                echo "  Fetching: \$FULL_URL"
+                curl -sL --max-time 8 "\$FULL_URL" > "reference/page_\$SAFE_NAME.html" 2>/dev/null || true
               done
+
+              # Step 3: Download images from the site (just images, skip JS/CSS/fonts)
+              mkdir -p "reference/images"
+              # Extract image URLs from all downloaded HTML
+              grep -ohP '(src|srcset)="(https?://[^"]*\.(jpg|jpeg|png|gif|svg|webp)[^"]*)"' reference/*.html 2>/dev/null | \
+                grep -oP 'https?://[^"]+' | sort -u | head -40 | while read IMG_URL; do
+                  FNAME=\$(basename "\$IMG_URL" | cut -d'?' -f1 | head -c 80)
+                  echo "  Image: \$FNAME"
+                  curl -sL --max-time 5 "\$IMG_URL" -o "reference/images/\$FNAME" 2>/dev/null || true
+                done
+
+              echo "Done scraping \$DOMAIN"
             done
           fi
           echo "=== Reference files ==="
           find reference/ -type f 2>/dev/null | head -100 || echo "No reference files"
+          echo "=== Total size ==="
+          du -sh reference/ 2>/dev/null || true
 
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
