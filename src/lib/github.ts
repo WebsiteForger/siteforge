@@ -159,12 +159,14 @@ jobs:
 
       - name: Scrape reference sites
         timeout-minutes: 5
+        continue-on-error: true
         env:
           PROMPT_TEXT: \${{ github.event.inputs.prompt }}
         run: |
           mkdir -p reference
-          # Extract URLs from the prompt
-          URLS=\$(echo "\$PROMPT_TEXT" | grep -oP 'https?://[^\\s"'"'"'<>]+' || true)
+          # Extract URLs from the prompt (only take the FIRST URL as the main site to scrape)
+          FIRST_URL=\$(echo "\$PROMPT_TEXT" | grep -oP 'https?://[^\\s"'"'"'<>]+' | head -1 || true)
+          URLS="\$FIRST_URL"
           if [ -n "\$URLS" ]; then
             for URL in \$URLS; do
               DOMAIN=\$(echo "\$URL" | sed 's|https\\?://||' | sed 's|/.*||')
