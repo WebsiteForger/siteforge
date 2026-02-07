@@ -32,55 +32,19 @@ export async function createSiteRepo(siteName: string, userId: string) {
   });
 
   // Small delay to let GitHub finish initializing the repo
-  await new Promise((r) => setTimeout(r, 1500));
+  await new Promise((r) => setTimeout(r, 2000));
 
-  // 2. Get the initial commit SHA so we can build on top of it
-  const { data: ref } = await octokit.rest.git.getRef({
-    owner: GITHUB_ORG,
-    repo: repoName,
-    ref: "heads/main",
-  });
-  const parentSha = ref.object.sha;
-
-  // 3. Push template files via Git API (embedded — no filesystem reads)
+  // 2. Push template files via Contents API (works with fine-grained PATs)
   const files = getTemplateFiles(siteName);
-  const tree = await Promise.all(
-    files.map(async (file) => {
-      const blob = await octokit.rest.git.createBlob({
-        owner: GITHUB_ORG,
-        repo: repoName,
-        content: Buffer.from(file.content).toString("base64"),
-        encoding: "base64",
-      });
-      return {
-        path: file.path,
-        mode: "100644" as const,
-        type: "blob" as const,
-        sha: blob.data.sha,
-      };
-    })
-  );
-
-  const treeResult = await octokit.rest.git.createTree({
-    owner: GITHUB_ORG,
-    repo: repoName,
-    tree,
-  });
-
-  const commit = await octokit.rest.git.createCommit({
-    owner: GITHUB_ORG,
-    repo: repoName,
-    message: "Initial site from SiteForge template",
-    tree: treeResult.data.sha,
-    parents: [parentSha],
-  });
-
-  await octokit.rest.git.updateRef({
-    owner: GITHUB_ORG,
-    repo: repoName,
-    ref: "heads/main",
-    sha: commit.data.sha,
-  });
+  for (const file of files) {
+    await octokit.rest.repos.createOrUpdateFileContents({
+      owner: GITHUB_ORG,
+      repo: repoName,
+      path: file.path,
+      message: `Add ${file.path}`,
+      content: Buffer.from(file.content).toString("base64"),
+    });
+  }
 
   // 3. Set the ANTHROPIC_API_KEY as a repo secret
   await setRepoSecret(repoName, "ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
