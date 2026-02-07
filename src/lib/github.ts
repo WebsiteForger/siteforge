@@ -22,16 +22,27 @@ export async function triggerAIEdit(repo: string, prompt: string) {
 export async function createSiteRepo(siteName: string, userId: string) {
   const repoName = `${siteName}-${shortId()}`;
 
-  // 1. Create the repo (private, tagged with owner)
+  // 1. Create the repo with auto_init so Git API works (private, tagged with owner)
   const repo = await octokit.rest.repos.createInOrg({
     org: GITHUB_ORG,
     name: repoName,
-    auto_init: false,
+    auto_init: true,
     private: true,
     description: `SiteForge site [owner:${userId}] [display:${siteName}]`,
   });
 
-  // 2. Push template files via Git API (embedded — no filesystem reads)
+  // Small delay to let GitHub finish initializing the repo
+  await new Promise((r) => setTimeout(r, 1500));
+
+  // 2. Get the initial commit SHA so we can build on top of it
+  const { data: ref } = await octokit.rest.git.getRef({
+    owner: GITHUB_ORG,
+    repo: repoName,
+    ref: "heads/main",
+  });
+  const parentSha = ref.object.sha;
+
+  // 3. Push template files via Git API (embedded — no filesystem reads)
   const files = getTemplateFiles(siteName);
   const tree = await Promise.all(
     files.map(async (file) => {
@@ -61,13 +72,13 @@ export async function createSiteRepo(siteName: string, userId: string) {
     repo: repoName,
     message: "Initial site from SiteForge template",
     tree: treeResult.data.sha,
-    parents: [],
+    parents: [parentSha],
   });
 
-  await octokit.rest.git.createRef({
+  await octokit.rest.git.updateRef({
     owner: GITHUB_ORG,
     repo: repoName,
-    ref: "refs/heads/main",
+    ref: "heads/main",
     sha: commit.data.sha,
   });
 
