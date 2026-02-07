@@ -146,24 +146,33 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-      pull-requests: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
-      - uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            The user wants you to edit their website. Here is their request:
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
 
-            \${{ github.event.inputs.prompt }}
+      - name: Run Claude
+        env:
+          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --model claude-sonnet-4-5-20250929 --dangerously-skip-permissions --max-turns 20 -p "
+          The user wants you to edit their website. Here is their request:
 
-            IMPORTANT: Read CLAUDE.md first for site editing rules. Always complete the task fully. Commit all changes when done.
-          claude_args: |
-            --model claude-sonnet-4-5-20250929
-            --max-turns 20
-            --dangerously-skip-permissions
+          \${{ github.event.inputs.prompt }}
+
+          IMPORTANT: Read CLAUDE.md first for site editing rules.
+          Always complete the task fully.
+          After making all changes, commit them with git.
+          "
+
+      - name: Push changes
+        run: |
+          git config user.name "claude[bot]"
+          git config user.email "noreply@anthropic.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "AI edit via SiteForge"
+          git push
 `;
 
 const CLAUDE_MD = `# SiteForge — AI Site Editor Instructions
